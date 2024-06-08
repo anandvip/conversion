@@ -2,23 +2,40 @@
 <html>
 <head>
     <title>Currency Converter</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: Arial, sans-serif;
-            text-align: center;
+            font-family: 'Poppins', sans-serif;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            gap: 0;
+            padding: 0;
+        }
+
+        .container, .history-container {
+            padding: 20px;
+            border: none;
+            height: 100%;
+            overflow-y: auto;
         }
 
         .container {
-            width: 50%;
-            margin: 40px auto;
-            padding: 20px;
-            border: 1px solid #ccc;
-            border-radius: 10px;
+            background-color: #fff;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .history-container {
+            background-color: #333;
+            color: #fff;
+            font-size: 12px;
         }
 
         .input-group {
             margin-bottom: 20px;
+            position: relative;
         }
 
         label {
@@ -26,20 +43,31 @@
             margin-bottom: 10px;
         }
 
-        input[type="number"] {
+        input[type="number"], select {
             width: 100%;
             padding: 10px;
             font-size: 16px;
+            box-sizing: border-box;
+        }
+<!-- toggle button -->
+        .toggle-button {
+            position: absolute;
+            top: 50%;
+            right: 180px;
+            transform: translateY(-50%);
+            cursor: pointer;
+            background-color: transparent;
+            border: none;
+            padding: 0;
         }
 
-        select {
-            width: 100%;
-            padding: 10px;
-            font-size: 16px;
+        .toggle-button img {
+            width: 30px;
+            height: 30px;
         }
 
         button[type="button"] {
-            width: 100%;
+            width: calc(100% - 20px);
             padding: 10px;
             font-size: 16px;
             background-color: #4CAF50;
@@ -53,16 +81,45 @@
             background-color: #3e8e41;
         }
 
+        .reset-button {
+            margin-left: 10px;
+            background-color: #f44336;
+        }
+
+        .reset-button:hover {
+            background-color: #d32f2f;
+        }
+
         #result {
-            font-size: 24px;
+            font-size: 20px;
             font-weight: bold;
             margin-top: 20px;
+            color: #333;
+            border: 2px dashed #333;
+            padding: 10px;
+            border-radius: 10px;
+            background-color: #f9f9f9;
+        }
+
+        .history-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .history-list {
+            list-style: decimal;
+            padding-left: 20px;
+        }
+
+        .history-item {
+            margin-bottom: 10px;
         }
     </style>
 </head>
 <body>
-    <h1>Currency Converter</h1>
     <div class="container">
+        <h1>Currency Converter</h1>
         <div class="input-group">
             <label for="amount">Amount:</label>
             <input type="number" id="amount" value="1">
@@ -73,6 +130,9 @@
                 <option value="INR">Indian Rupee (INR)</option>
                 <option value="USD">United States Dollar (USD)</option>
             </select>
+            <button class="toggle-button" onclick="toggleCurrencies()">
+                <img src="https://github.com/anandvip/conversion/blob/main/toggle.png?raw=true" alt="Toggle">
+            </button>
         </div>
         <div class="input-group">
             <label for="to">To:</label>
@@ -81,40 +141,127 @@
                 <option value="INR">Indian Rupee (INR)</option>
             </select>
         </div>
-        <button id="convert">Convert</button>
+        <div class="input-group">
+            <label>Rate Type:</label>
+            <label><input type="radio" name="rateType" value="spot" checked> Spot Rate</label>
+            <label><input type="radio" name="rateType" value="future"> Future Rate (mock)</label>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button id="convert">Convert</button>
+            <button class="reset-button" onclick="resetForm()">Reset</button>
+        </div>
         <div id="result"></div>
-
-        <script>
-            const appId = "cfef842c37364a4f82a5fd92c290a25a";
-            const apiEndpoint = "https://openexchangerates.org/api/latest.json";
-
-            document.getElementById("convert").addEventListener("click", convertCurrency);
-
-            function convertCurrency() {
-                const amount = document.getElementById("amount").value;
-                const from = document.getElementById("from").value;
-                const to = document.getElementById("to").value;
-
-                fetch(`${apiEndpoint}?app_id=${appId}`)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! Status: ${response.status}`);
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        const rates = data.rates;
-                        const fromRate = rates[from];
-                        const toRate = rates[to];
-                        const result = amount * (toRate / fromRate);
-                        document.getElementById("result").textContent = `${amount} ${from} = ${result.toFixed(2)} ${to}`;
-                    })
-                    .catch(error => {
-                        console.error("Error:", error);
-                        document.getElementById("result").textContent = `Error: ${error.message}`;
-                    });
-            }
-        </script>
     </div>
+
+    <div class="history-container">
+        <div class="history-title">Conversion History</div>
+        <ul class="history-list" id="history-list"></ul>
+    </div>
+
+    <script>
+        const appId = "cfef842c37364a4f82a5fd92c290a25a";
+        const apiEndpoint = "https://openexchangerates.org/api/latest.json";
+
+        const currencySymbols = {
+            USD: '$',
+            INR: '₹'
+        };
+
+        document.getElementById("convert").addEventListener("click", convertCurrency);
+
+        window.onload = function() {
+            loadHistory();
+        };
+
+        function loadHistory() {
+            const historyList = document.getElementById("history-list");
+            const history = JSON.parse(localStorage.getItem("conversionHistory")) || [];
+            history.forEach(item => {
+                const historyItem = document.createElement("li");
+                historyItem.className = "history-item";
+                historyItem.textContent = item;
+                historyList.appendChild(historyItem);
+            });
+        }
+
+        function saveToHistory(resultText) {
+            const now = new Date();
+            const timestamp = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+            const historyEntry = `${timestamp}: ${resultText}`;
+            const history = JSON.parse(localStorage.getItem("conversionHistory")) || [];
+            history.push(historyEntry);
+            localStorage.setItem("conversionHistory", JSON.stringify(history));
+            return historyEntry;
+        }
+
+        function convertCurrency() {
+            const amount = document.getElementById("amount").value;
+            const from = document.getElementById("from").value;
+            const to = document.getElementById("to").value;
+            const rateType = document.querySelector('input[name="rateType"]:checked').value;
+
+            fetch(`${apiEndpoint}?app_id=${appId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const rates = data.rates;
+                    const fromRate = rates[from];
+                    const toRate = rates[to];
+
+                    let result;
+                    let rateTypeText = 'at spot rate';
+                    
+                    if (rateType === 'future') {
+                        // Mock future rate calculation
+                        const futureRateMultiplier = 1.05; // Example multiplier for future rate
+                        result = amount * (toRate / fromRate) * futureRateMultiplier;
+                        rateTypeText = 'at future rate (mock)';
+                    } else {
+                        result = amount * (toRate / fromRate);
+                    }
+
+                    const fromSymbol = currencySymbols[from] || '';
+                    const toSymbol = currencySymbols[to] || '';
+                    const resultText = `${fromSymbol}${amount} ${from} = ${toSymbol}${result.toFixed(2)} ${to} (${rateTypeText})`;
+
+                    document.getElementById("result").textContent = resultText;
+
+                    const historyEntry = saveToHistory(resultText);
+                    addToHistory(historyEntry);
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    document.getElementById("result").textContent = `Error: ${error.message}`;
+                });
+        }
+
+        function addToHistory(historyEntry) {
+            const historyList = document.getElementById("history-list");
+            const historyItem = document.createElement("li");
+            historyItem.className = "history-item";
+            historyItem.textContent = historyEntry;
+            historyList.appendChild(historyItem);
+        }
+
+        function toggleCurrencies() {
+            const fromSelect = document.getElementById("from");
+            const toSelect = document.getElementById("to");
+            const fromValue = fromSelect.value;
+            fromSelect.value = toSelect.value;
+            toSelect.value = fromValue;
+        }
+
+        function resetForm() {
+            document.getElementById("amount").value = "1";
+            document.getElementById("from").value = "INR";
+            document.getElementById("to").value = "USD";
+            document.querySelector('input[name="rateType"][value="spot"]').checked = true;
+            document.getElementById("result").textContent = "";
+        }
+    </script>
 </body>
 </html>
